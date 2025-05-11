@@ -1,39 +1,28 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"booking-app/internal/bookings"
 	"log"
 	"net/http"
-	"time"
 
-	"booking-app/internal/bookings"
+	"github.com/gorilla/mux"
 )
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Welcome to the Booking App!")
-}
-
-func bookingsHandler(w http.ResponseWriter, r *http.Request) {
-	booking := bookings.Booking{
-		ID:        1,
-		UserName:  "John Doe",
-		Event:     "Concert",
-		CreatedAt: time.Now(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(booking); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
 func main() {
-	http.HandleFunc("/", helloHandler)
-	http.HandleFunc("/bookings", bookingsHandler)
-	fmt.Println("Starting server on :8080...")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	r := mux.NewRouter()
+	r.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Welcome to Booking App"))
+	}).Methods(http.MethodGet)
+
+	r.HandleFunc("/bookings", bookings.ListBookings).Methods(http.MethodGet)
+	r.HandleFunc("/bookings", bookings.CreateBookingHandler).Methods(http.MethodPost)
+	r.HandleFunc("/bookings/{id}", bookings.GetBookingHandler).Methods(http.MethodGet)
+	r.HandleFunc("/bookings/{id}", bookings.UpdateBookingHandler).Methods(http.MethodPut)
+	r.HandleFunc("/bookings/{id}", bookings.DeleteBookingHandler).Methods(http.MethodDelete)
+	r.HandleFunc("/bookings/delete-all", bookings.DeleteAllBookingsHandler).Methods(http.MethodDelete)
+
+	log.Println("Starting server on :8080")
+	if err := http.ListenAndServe(":8080", r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
