@@ -10,16 +10,15 @@ import (
 
 func main() {
 	r := mux.NewRouter()
+	r.Use(bookings.LoggingMiddleware) // Apply to all routes
 	r.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to Booking App"))
+		w.Write([]byte("Welcome to the Booking App!"))
 	}).Methods(http.MethodGet)
-
 	r.HandleFunc("/bookings", bookings.ListBookings).Methods(http.MethodGet)
 	r.HandleFunc("/bookings", bookings.CreateBookingHandler).Methods(http.MethodPost)
 	r.HandleFunc("/bookings/{id}", bookings.GetBookingHandler).Methods(http.MethodGet)
 	r.HandleFunc("/bookings/{id}", bookings.UpdateBookingHandler).Methods(http.MethodPut)
 	r.HandleFunc("/bookings/{id}", bookings.DeleteBookingHandler).Methods(http.MethodDelete)
-	r.HandleFunc("/bookings/delete-all", bookings.DeleteAllBookingsHandler).Methods(http.MethodDelete)
 
 	log.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {
