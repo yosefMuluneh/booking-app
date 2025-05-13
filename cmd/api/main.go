@@ -5,8 +5,12 @@ import (
 	"net/http"
 
 	"booking-app/internal/bookings"
+	"booking-app/internal/middleware"
+	"booking-app/internal/users"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
@@ -18,20 +22,34 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	dsn := "postgres://booking_user:securepassword@localhost:5432/booking_app?sslmode=disable"
-	store, err := bookings.NewDBStore(dsn)
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	handler := bookings.NewHandler(store)
+	bookingStore, err := bookings.NewDBStore(dsn)
+	if err != nil {
+		log.Fatalf("Failed to create booking store: %v", err)
+	}
+	userStore := users.NewDBStore(db)
+	jwtSecret := "your-secret-key" // Use env variable in production
+
+	bookingHandler := bookings.NewHandler(bookingStore)
+	userHandler := users.NewHandler(userStore, jwtSecret)
 
 	r := mux.NewRouter()
 	r.Use(bookings.LoggingMiddleware)
 	r.HandleFunc("/hello", helloHandler).Methods(http.MethodGet)
-	r.HandleFunc("/bookings", handler.ListBookings).Methods(http.MethodGet)
-	r.HandleFunc("/bookings", handler.CreateBookingHandler).Methods(http.MethodPost)
-	r.HandleFunc("/bookings/{id}", handler.GetBookingHandler).Methods(http.MethodGet)
-	r.HandleFunc("/bookings/{id}", handler.UpdateBookingHandler).Methods(http.MethodPut)
-	r.HandleFunc("/bookings/{id}", handler.DeleteBookingHandler).Methods(http.MethodDelete)
+	r.HandleFunc("/register", userHandler.Register).Methods(http.MethodPost)
+	r.HandleFunc("/login", userHandler.Login).Methods(http.MethodPost)
+
+	// Protected routes
+	protected := r.PathPrefix("/bookings").Subrouter()
+	protected.Use(middleware.Auth(jwtSecret))
+	protected.HandleFunc("", bookingHandler.ListBookings).Methods(http.MethodGet)
+	protected.HandleFunc("", bookingHandler.CreateBookingHandler).Methods(http.MethodPost)
+	protected.HandleFunc("/{id}", bookingHandler.GetBookingHandler).Methods(http.MethodGet)
+	protected.HandleFunc("/{id}", bookingHandler.UpdateBookingHandler).Methods(http.MethodPut)
+	protected.HandleFunc("/{id}", bookingHandler.DeleteBookingHandler).Methods(http.MethodDelete)
 
 	log.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {
