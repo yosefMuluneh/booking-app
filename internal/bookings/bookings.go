@@ -7,11 +7,12 @@ import (
 )
 
 type Booking struct {
-	ID        int       `json:"id"`
-	UserName  string    `json:"user_name"`
-	Event     string    `json:"event"`
-	CreatedAt time.Time `json:"created_at"`
-	IsActive  bool      `json:"is_active"`
+	ID        int       `json:"id" db:"id"`
+	UserName  string    `json:"user_name" db:"user_name"`
+	Event     string    `json:"event" db:"event"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	IsActive  bool      `json:"is_active" db:"is_active"`
 }
 
 // Store manages bookings in memory

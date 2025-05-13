@@ -12,25 +12,34 @@ import (
 
 var validate = validator.New()
 
-// ListBookings handles GET /bookings
-func ListBookings(w http.ResponseWriter, r *http.Request) {
-	bookings := GetAllBookings()
+type Handler struct {
+	store *DBStore
+}
+
+func NewHandler(store *DBStore) *Handler {
+	return &Handler{store: store}
+}
+
+func (h *Handler) ListBookings(w http.ResponseWriter, r *http.Request) {
+	bookings, err := h.store.GetAllBookings(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to fetch bookings", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(bookings); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
 	}
 }
 
-// GetBooking handles GET /bookings/{id}
-func GetBookingHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetBookingHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	booking, err := GetBooking(id)
+	booking, err := h.store.GetBooking(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -41,8 +50,7 @@ func GetBookingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// CreateBooking handles POST /bookings
-func CreateBookingHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateBookingHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		UserName string `json:"user_name" validate:"required"`
 		Event    string `json:"event" validate:"required"`
@@ -55,8 +63,7 @@ func CreateBookingHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	id := len(GetAllBookings()) + 1
-	booking, err := CreateBooking(id, input.UserName, input.Event)
+	booking, err := h.store.CreateBooking(r.Context(), input.UserName, input.Event)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -68,55 +75,45 @@ func CreateBookingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdateBooking handles PUT /booking/{id}
-func UpdateBookingHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	var input struct {
-		IsActive bool   `json:"is_active"`
-		UserName string `json:"user_name"`
-		Event    string `json:"event"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	updatedBooking, err := UpdateBooking(id, input.UserName, input.Event, input.IsActive)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(updatedBooking); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
-}
-
-// DeleteBooking handles DELETE /bookings/{id}
-func DeleteBookingHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateBookingHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	if err := DeleteBooking(id); err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+	var input struct {
+		UserName string `json:"user_name" validate:"required"`
+		Event    string `json:"event" validate:"required"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	if err := validate.Struct(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	booking, err := h.store.UpdateBooking(r.Context(), id, input.UserName, input.Event)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(booking); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
-func DeleteAllBookingsHandler(w http.ResponseWriter, r *http.Request) {
-	println("DeleteAllBookingsHandler")
-	if err := DeleteAllBookings(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+func (h *Handler) DeleteBookingHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.DeleteBooking(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
