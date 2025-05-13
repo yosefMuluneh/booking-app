@@ -119,6 +119,20 @@ func (h *Handler) DeleteBookingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) GetBookingsByEventHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	event := vars["event"]
+	bookings, err := h.store.GetBookingsByEvent(r.Context(), event)
+	if err != nil {
+		http.Error(w, "Failed to fetch bookings", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(bookings); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s", r.Method, r.URL.Path)

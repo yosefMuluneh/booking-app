@@ -68,6 +68,12 @@ func (s *DBStore) GetBooking(ctx context.Context, id int) (Booking, error) {
 	return b, nil
 }
 
+func (s *DBStore) GetBookingsByEvent(ctx context.Context, event string) ([]Booking, error) {
+	var bookings []Booking
+	err := s.db.SelectContext(ctx, &bookings, "SELECT * FROM bookings WHERE event = $1", event)
+	return bookings, err
+}
+
 func (s *DBStore) GetAllBookings(ctx context.Context) ([]Booking, error) {
 	var bookings []Booking
 	err := s.db.SelectContext(ctx, &bookings, "SELECT * FROM bookings")

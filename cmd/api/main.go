@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"booking-app/internal/bookings"
 	"booking-app/internal/middleware"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
+
 	_ "github.com/lib/pq"
 )
 
@@ -31,7 +34,15 @@ func main() {
 		log.Fatalf("Failed to create booking store: %v", err)
 	}
 	userStore := users.NewDBStore(db)
-	jwtSecret := "your-secret-key" // Use env variable in production
+
+	env_err := godotenv.Load()
+	if env_err != nil {
+		log.Fatalf("Error loading .env file: %v", env_err)
+	}
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET not set")
+	}
 
 	bookingHandler := bookings.NewHandler(bookingStore)
 	userHandler := users.NewHandler(userStore, jwtSecret)
@@ -45,6 +56,7 @@ func main() {
 	// Protected routes
 	protected := r.PathPrefix("/bookings").Subrouter()
 	protected.Use(middleware.Auth(jwtSecret))
+	protected.HandleFunc("", bookingHandler.GetBookingsByEventHandler).Queries("event", "{event}").Methods(http.MethodGet)
 	protected.HandleFunc("", bookingHandler.ListBookings).Methods(http.MethodGet)
 	protected.HandleFunc("", bookingHandler.CreateBookingHandler).Methods(http.MethodPost)
 	protected.HandleFunc("/{id}", bookingHandler.GetBookingHandler).Methods(http.MethodGet)

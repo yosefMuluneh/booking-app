@@ -102,10 +102,3 @@ func DeleteBooking(id int) error {
 	store.mu.Unlock()
 	return nil
 }
-
-func DeleteAllBookings() error {
-	store.mu.Lock()
-	store.bookings = make(map[int]Booking)
-	store.mu.Unlock()
-	return nil
-}
